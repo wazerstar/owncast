@@ -33,6 +33,12 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{github.event.pull_request.head.ref}}
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.19.1'
 
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -40,7 +46,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files-yaml
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@v45
         with:
           path: 'web'
           files_ignore: |
@@ -65,19 +71,27 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Lint
-        if: steps.changed-files-yaml.outputs.src_any_changed == 'true'
+      - name: Lint and fix
+        if: steps.changed-files-yaml.outputs.src_any_changed == 'true' && github.event_name != 'pull_request'
         run: npx eslint --fix ${{ steps.changed-files-yaml.outputs.src_all_changed_files }}
 
-      - name: Prettier
-        if: steps.changed-files-yaml.outputs.src_any_changed == 'true'
+      - name: Lint
+        if: steps.changed-files-yaml.outputs.src_any_changed == 'true' && github.event_name == 'pull_request'
+        run: npx eslint ${{ steps.changed-files-yaml.outputs.src_all_changed_files }}
+
+      - name: Prettier formatting
+        if: steps.changed-files-yaml.outputs.src_any_changed == 'true' && github.event_name == 'pull_request'
         run: npx prettier --write ${{ steps.changed-files-yaml.outputs.src_all_changed_files }}
+
+      - name: Prettier check
+        if: steps.changed-files-yaml.outputs.src_any_changed == 'true' && github.event_name != 'pull_request'
+        run: npx prettier ${{ steps.changed-files-yaml.outputs.src_all_changed_files }}
 
       - name: Debug changed files output
         run: 'pwd && echo "Changed files: ${{ steps.changed-files-yaml.outputs.src_all_changed_files }}"'
 
       - name: Commit changes
-        if: steps.changed-files-yaml.outputs.src_any_changed == 'true'
+        if: steps.changed-files-yaml.outputs.src_any_changed == 'true' && github.event_name != 'pull_request'
         uses: EndBug/add-and-commit@v9
         with:
           author_name: Owncast
@@ -111,6 +125,11 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
         if: github.event_name == 'push'
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.19.1'
 
       - name: Cache node modules
         uses: actions/cache@v4
@@ -149,6 +168,11 @@ jobs:
           concurrent_skipping: 'same_content_newer'
           cancel_others: 'true'
           skip_after_successful_duplicate: 'true'
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.19.1'
 
       - name: Cache node modules
         uses: actions/cache@v4
